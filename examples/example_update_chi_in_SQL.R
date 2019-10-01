@@ -70,6 +70,28 @@ dbWriteTable(db_extract51,
              overwrite = F, append = T)
 
 
-#### COPY DATA FROM SQL 51 (WIP) to SQL 50 (Production) ####
+#### COPY DATA FROM SQL 51 (Development) to SQL 50 (Production) ####
 # Only do this once data have passed QA!
-# (Example R code forthcoming; for now use "S:\WORK\CHI Visualizations\Table of contents\Update Tableau SQL prod server.sql" as template)
+# Alternativlely, use "S:\WORK\CHI Visualizations\Table of contents\Update Tableau SQL prod server.sql" as template
+
+
+# create function to delete existing table in SQL50 and write new table from SQL51
+sql_update <- function(to_schema, from_schema, table_name, con) {
+  sql_delete <- glue::glue_sql("DELETE FROM KCITSQLPRPDBM50_APDE.PHExtractStore.{`to_schema`}.{`table_name`}", 
+                               .con = con)
+  
+  dbGetQuery(con, sql_delete)
+  
+  sql_load <- glue::glue_sql("INSERT INTO KCITSQLPRPDBM50_APDE.PHExtractStore.{`to_schema`}.{`table_name`} WITH (TABLOCK) 
+                                SELECT * FROM 
+                                {`from_schema`}.{`table_name`}", 
+                             .con = con)
+  
+  dbGetQuery(con, sql_load)
+}
+
+# create list of tables to be updated. indicators titles and toc should stay the same, results and metadata may change based on data source
+tables <- list("hys_results", "hys_metadata", "indicators_titles", "indicators_toc") 
+
+# run function on list of tables
+lapply(tables, sql_update, from_schema = "APDE_WIP", to_schema = "APDE", con = db_extract51)
